@@ -2,6 +2,9 @@ name: Dating App Load Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   k6-load-test:
@@ -15,6 +18,7 @@ jobs:
         uses: grafana/setup-k6-action@v1
 
       - name: Run k6 load test and save results
+        id: k6
         run: |
           mkdir -p results
           k6 run loadtest/loadtest.js --out json=results/results.json
@@ -25,3 +29,44 @@ jobs:
         with:
           name: load-test-results
           path: results/results.json
+
+      # -----------------------------
+      # Deploy to Vercel (even if tests fail)
+      # -----------------------------
+      - name: Deploy to Vercel
+        id: vercel
+        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          working-directory: ./vercel-site
+          vercel-args: '--prod --yes'
+
+      # -----------------------------
+      # Notify Discord with final Vercel URL + test status
+      # -----------------------------
+      - name: Notify Discord with Vercel report URL
+        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TEST_STATUS: ${{ steps.k6.outcome }}
+          VERCEL_URL: ${{ steps.vercel.outputs.preview-url }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$VERCEL_URL" ]; then
+            VERCEL_URL_MSG="(Vercel deployment did not return a URL – check workflow logs)"
+          else
+            VERCEL_URL_MSG="$VERCEL_URL"
+          fi
+
+          payload=$(cat <<EOF
+          {
+            "content": "API Load Test run finished with status: **$TEST_STATUS**\nGitHub Run: $RUN_URL\nVercel HTML report: $VERCEL_URL_MSG"
+          }
+          EOF
+          )
+
+          curl -H "Content-Type: application/json" -X POST -d "$payload" $DISCORD_WEBHOOK_URL
