@@ -15,7 +15,7 @@ let reqDuration = new Trend('request_duration');
 export default function () {
   // --- Login ---
   let loginRes = http.post(`https://api.2klips.com/auth/admin/login`, JSON.stringify({
-    phone: "+977980000000000"
+    phone: "+9779800000000"
   }), { headers: { 'Content-Type': 'application/json' } });
 
   check(loginRes, { "login status 200": (r) => r.status === 200 });
