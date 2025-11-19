@@ -14,8 +14,8 @@ let reqDuration = new Trend('request_duration');
 
 export default function () {
   // --- Login ---
-  let loginRes = http.post(`${BASE_URL}/auth/admin/login`, JSON.stringify({
-    phone: "+9779807592152"
+  let loginRes = http.post(`https://api.2klips.com/auth/admin/login`, JSON.stringify({
+    phone: "+977980000000000"
   }), { headers: { 'Content-Type': 'application/json' } });
 
   check(loginRes, { "login status 200": (r) => r.status === 200 });
@@ -23,7 +23,7 @@ export default function () {
   let validation_token = loginRes.json().validation_token;
 
   // --- Verify phone ---
-  let verifyRes = http.post(`${BASE_URL}/auth/admin/verifyPhone`, JSON.stringify({
+  let verifyRes = http.post(`https://api.2klips.com/auth/admin/verifyPhone`, JSON.stringify({
     validation_token: validation_token,
     otp: 1234
   }), { headers: { 'Content-Type': 'application/json' } });
@@ -32,19 +32,19 @@ export default function () {
   let auth_token = verifyRes.json().data.access_token;
 
   // --- Fetch profile ---
-  let profileRes = http.get(`${BASE_URL}/user/me`, {
+  let profileRes = http.get(`https://api.2klips.com/user/me`, {
     headers: { 'Authorization': `Bearer ${auth_token}` }
   });
   check(profileRes, { "profile status 200": (r) => r.status === 200 });
 
   // --- Discover feed ---
-  let discoverRes = http.get(`${BASE_URL}/discover`, {
+  let discoverRes = http.get(`https://api.2klips.com/discover`, {
     headers: { 'Authorization': `Bearer ${auth_token}` }
   });
   check(discoverRes, { "discover status 200": (r) => r.status === 200 });
 
   // --- Swipe ---
-  let swipeRes = http.post(`${BASE_URL}/swipe`, JSON.stringify({
+  let swipeRes = http.post(`https://api.2klips.com/swipe`, JSON.stringify({
     swipeeId: "5",
     liked: true
   }), {
