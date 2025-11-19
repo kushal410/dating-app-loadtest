@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js (required for k6-reporter)
+      # 2️⃣ Setup Node.js (required for k6-to-html)
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -33,11 +33,11 @@ jobs:
           k6 run loadtest/loadtest.js --out json=results/results.json
           echo "Load test completed. Results saved to results/results.json"
 
-      # 5️⃣ Generate HTML report using k6-reporter
+      # 5️⃣ Generate HTML report using k6-to-html
       - name: Generate HTML report
         run: |
-          npm install -g k6-reporter
-          k6-reporter results/results.json results/report.html
+          npm install -g k6-to-html
+          k6-to-html results/results.json -o results/report.html
           echo "HTML report generated: results/report.html"
 
       # 6️⃣ Upload JSON results as artifact
@@ -53,3 +53,18 @@ jobs:
         with:
           name: k6-html-report
           path: results/report.html
+
+      # 8️⃣ Upload HTML report to your server (optional)
+      - name: Upload HTML report to server
+        if: success()
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PATH: ${{ secrets.SERVER_PATH }}
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          scp -o StrictHostKeyChecking=no results/report.html $SERVER_USER@$SERVER_HOST:$SERVER_PATH
+          echo "Report uploaded to server: http://$SERVER_HOST/$SERVER_PATH/report.html"
