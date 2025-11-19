@@ -14,5 +14,14 @@ jobs:
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      - name: Run k6 load test
-        run: k6 run loadtest/loadtest.js
+      - name: Run k6 load test and save results
+        run: |
+          mkdir -p results
+          k6 run loadtest/loadtest.js --out json=results/results.json
+          echo "Load test completed. Results saved to results/results.json"
+
+      - name: Upload results as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: results/results.json
