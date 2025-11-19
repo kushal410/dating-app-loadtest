@@ -15,11 +15,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Go (required for xk6-html)
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          go-version: '1.21'
+          node-version: '20'
 
       # 3️⃣ Setup k6
       - name: Setup k6
@@ -33,15 +33,11 @@ jobs:
           k6 run loadtest/loadtest.js --out json=results/results.json
           echo "Load test completed. Results saved to results/results.json"
 
-      # 5️⃣ Generate HTML report using xk6-html
+      # 5️⃣ Install k6-html-reporter and generate HTML report
       - name: Generate HTML report
         run: |
-          # Install xk6-html
-          go install github.com/mostafa/xk6-html/cmd/xk6-html@latest
-          export PATH=$PATH:$HOME/go/bin
-
-          # Generate HTML from JSON
-          xk6-html -i results/results.json -o results/report.html
+          npm install -g @harness/k6-reporter
+          k6-reporter results/results.json results/report.html
           echo "HTML report generated: results/report.html"
 
       # 6️⃣ Upload JSON results as artifact
@@ -58,7 +54,7 @@ jobs:
           name: k6-html-report
           path: results/report.html
 
-      # 8️⃣ Upload HTML report to your server (optional)
+      # 8️⃣ Upload HTML report to server (optional)
       - name: Upload HTML report to server
         if: success()
         env:
