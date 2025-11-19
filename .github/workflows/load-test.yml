@@ -16,38 +16,36 @@ jobs:
     steps:
       # 1️⃣ Checkout repo
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js (for k6-reporter + summary script)
+      # 2️⃣ Setup Node.js (for the summary generation script)
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 3️⃣ Setup k6
+      # 3️⃣ Setup k6 (0.49.0+ has web dashboard + HTML export)
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
+        with:
+          # You can bump this to a newer version later if you want
+          k6-version: '0.49.0'
 
-      # 4️⃣ Run k6 load test and export summary JSON
+      # 4️⃣ Run k6 load test, export HTML + summary JSON
       - name: Run k6 load test
         id: k6
         run: |
           mkdir -p results
-          # Export a compact summary JSON instead of raw streaming JSON
+
+          # Enable k6 web dashboard and export HTML report to file
+          K6_WEB_DASHBOARD=true \
+          K6_WEB_DASHBOARD_EXPORT=results/report.html \
           k6 run loadtest/loadtest.js \
             --summary-export=results/summary.json
 
-          echo "Load test completed. Summary saved to results/summary.json"
+          echo "Load test completed. Summary JSON + HTML report saved in results/"
 
-      # 5️⃣ Install k6-html-reporter and generate HTML report
-      - name: Generate HTML report
-        run: |
-          npm install -g @harness/k6-reporter
-          # Uses the summary generated above
-          k6-reporter results/summary.json results/report.html
-          echo "HTML report generated: results/report.html"
-
-      # 6️⃣ Add a beautiful summary to the GitHub Actions 'Summary' tab
+      # 5️⃣ Generate a beautiful Markdown summary in the GitHub Actions UI
       - name: Publish pretty summary to job summary
         run: |
           node - << 'EOF'
@@ -114,19 +112,19 @@ jobs:
 
           md += '\n### 📁 Artifacts\n\n';
           md += '- `results/summary.json` – raw k6 summary JSON\n';
-          md += '- `results/report.html` – full interactive HTML report\n';
+          md += '- `results/report.html` – full interactive HTML report exported from k6 web dashboard\n';
 
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
           EOF
 
-      # 7️⃣ Upload summary JSON as artifact
+      # 6️⃣ Upload JSON summary as artifact
       - name: Upload JSON summary
         uses: actions/upload-artifact@v4
         with:
           name: k6-summary-json
           path: results/summary.json
 
-      # 8️⃣ Upload HTML report as artifact
+      # 7️⃣ Upload HTML report as artifact
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         with:
