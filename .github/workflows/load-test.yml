@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   k6-load-test:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
+      # 2️⃣ Setup Node.js (for k6-reporter + summary script)
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -25,46 +28,107 @@ jobs:
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      # 4️⃣ Run k6 load test and save JSON
+      # 4️⃣ Run k6 load test and export summary JSON
       - name: Run k6 load test
         id: k6
         run: |
           mkdir -p results
-          k6 run loadtest/loadtest.js --out json=results/results.json
-          echo "Load test completed. Results saved to results/results.json"
+          # Export a compact summary JSON instead of raw streaming JSON
+          k6 run loadtest/loadtest.js \
+            --summary-export=results/summary.json
+
+          echo "Load test completed. Summary saved to results/summary.json"
 
       # 5️⃣ Install k6-html-reporter and generate HTML report
       - name: Generate HTML report
         run: |
           npm install -g @harness/k6-reporter
-          k6-reporter results/results.json results/report.html
+          # Uses the summary generated above
+          k6-reporter results/summary.json results/report.html
           echo "HTML report generated: results/report.html"
 
-      # 6️⃣ Upload JSON results as artifact
-      - name: Upload JSON results
+      # 6️⃣ Add a beautiful summary to the GitHub Actions 'Summary' tab
+      - name: Publish pretty summary to job summary
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const path = 'results/summary.json';
+
+          if (!fs.existsSync(path)) {
+            console.error('Summary file not found:', path);
+            process.exit(1);
+          }
+
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const metrics = data.metrics || {};
+
+          const checks = (metrics.checks && metrics.checks.values) || {};
+          const httpReqDuration = (metrics.http_req_duration && metrics.http_req_duration.values) || {};
+          const httpReqs = (metrics.http_reqs && metrics.http_reqs.values) || {};
+          const vus = (metrics.vus && metrics.vus.values) || {};
+
+          const fmtNum = (v, digits = 2) =>
+            typeof v === 'number' ? v.toFixed(digits) : 'n/a';
+
+          let md = '';
+
+          md += '## 🚀 Dating App k6 Load Test\n\n';
+
+          if (data.root_group && data.root_group.name) {
+            md += `**Scenario:** \`${data.root_group.name}\`\n\n`;
+          }
+
+          md += '### 📊 Key Metrics\n\n';
+          md += '| Metric | Value |\n';
+          md += '| --- | --- |\n';
+
+          if (typeof checks.rate === 'number') {
+            const totalChecks = (checks.passes || 0) + (checks.fails || 0);
+            const passRate = (checks.rate * 100).toFixed(2);
+
+            md += `| ✅ Check pass rate | ${passRate}% |\n`;
+            md += `| ✅ Checks (passes / fails) | ${(checks.passes || 0)} / ${(checks.fails || 0)} |\n`;
+            md += `| ✅ Total checks | ${totalChecks} |\n`;
+          }
+
+          if (Object.keys(httpReqDuration).length > 0) {
+            md += `| ⏱️ http_req_duration avg | ${fmtNum(httpReqDuration.avg)} ms |\n`;
+            if (httpReqDuration['p(90)'] !== undefined) {
+              md += `| ⏱️ http_req_duration p(90) | ${fmtNum(httpReqDuration['p(90)'])} ms |\n`;
+            }
+            if (httpReqDuration['p(95)'] !== undefined) {
+              md += `| ⏱️ http_req_duration p(95) | ${fmtNum(httpReqDuration['p(95)'])} ms |\n`;
+            }
+          }
+
+          if (Object.keys(httpReqs).length > 0) {
+            md += `| 🌐 Total HTTP requests | ${httpReqs.count || 0} |\n`;
+            if (httpReqs.rate !== undefined) {
+              md += `| 🌐 HTTP requests / sec | ${fmtNum(httpReqs.rate)} |\n`;
+            }
+          }
+
+          if (vus && vus.value !== undefined) {
+            md += `| 👥 Virtual users (VUs) | ${vus.value} |\n`;
+          }
+
+          md += '\n### 📁 Artifacts\n\n';
+          md += '- `results/summary.json` – raw k6 summary JSON\n';
+          md += '- `results/report.html` – full interactive HTML report\n';
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+          EOF
+
+      # 7️⃣ Upload summary JSON as artifact
+      - name: Upload JSON summary
         uses: actions/upload-artifact@v4
         with:
-          name: k6-json-results
-          path: results/results.json
+          name: k6-summary-json
+          path: results/summary.json
 
-      # 7️⃣ Upload HTML report as artifact
+      # 8️⃣ Upload HTML report as artifact
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         with:
           name: k6-html-report
           path: results/report.html
-
-      # 8️⃣ Upload HTML report to server (optional)
-      - name: Upload HTML report to server
-        if: success()
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_PATH: ${{ secrets.SERVER_PATH }}
-          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          scp -o StrictHostKeyChecking=no results/report.html $SERVER_USER@$SERVER_HOST:$SERVER_PATH
-          echo "Report uploaded to server: http://$SERVER_HOST/$SERVER_PATH/report.html"
