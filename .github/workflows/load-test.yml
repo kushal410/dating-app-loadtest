@@ -11,21 +11,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # 2️⃣ Setup Node.js (required for k6-reporter)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      # 3️⃣ Setup k6
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      - name: Run k6 load test and save results
+      # 4️⃣ Run k6 load test and save JSON
+      - name: Run k6 load test
         id: k6
         run: |
           mkdir -p results
           k6 run loadtest/loadtest.js --out json=results/results.json
           echo "Load test completed. Results saved to results/results.json"
 
-      - name: Upload results as artifact
+      # 5️⃣ Generate HTML report using k6-reporter
+      - name: Generate HTML report
+        run: |
+          npm install -g k6-reporter
+          k6-reporter results/results.json results/report.html
+          echo "HTML report generated: results/report.html"
+
+      # 6️⃣ Upload JSON results as artifact
+      - name: Upload JSON results
         uses: actions/upload-artifact@v4
         with:
-          name: load-test-results
+          name: k6-json-results
           path: results/results.json
+
+      # 7️⃣ Upload HTML report as artifact
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-html-report
+          path: results/report.html
