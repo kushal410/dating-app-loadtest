@@ -33,13 +33,13 @@ export default function () {
 
   // --- Fetch profile ---
   let profileRes = http.get(`https://api.2klips.com/user/me`, {
-    headers: { 'Authorization': `Bearer ${auth_token}` }
+    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
   });
   check(profileRes, { "profile status 200": (r) => r.status === 200 });
 
   // --- Discover feed ---
   let discoverRes = http.get(`https://api.2klips.com/discover`, {
-    headers: { 'Authorization': `Bearer ${auth_token}` }
+    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
   });
   check(discoverRes, { "discover status 200": (r) => r.status === 200 });
 
@@ -48,12 +48,12 @@ export default function () {
     swipeeId: "5",
     liked: true
   }), {
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth_token}` }
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
   });
   check(swipeRes, { "swipe status 200": (r) => r.status === 200 });
 
   // --- Optional Chat ---
-  // http.post(`${BASE_URL}/chat/send`, JSON.stringify({ toUserId: "5", message: "Hello!" }),
+  // http.post(`https://api.2klips.com/chat/send`, JSON.stringify({ toUserId: "5", message: "Hello!" }),
   // { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth_token}` } });
 
   // --- Track duration metric ---
