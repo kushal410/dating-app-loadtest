@@ -3,7 +3,7 @@ import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
 export const options = {
-  vus: 100,
+  vus: 5000,
   duration: "2m",
 };
 
