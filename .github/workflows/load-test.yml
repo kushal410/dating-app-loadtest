@@ -82,7 +82,7 @@ jobs:
 
           if (typeof checks.rate === 'number') {
             const totalChecks = (checks.passes || 0) + (checks.fails || 0);
-            const passRate = (checks.rate * 5000).toFixed(2);
+            const passRate = (checks.rate * 100).toFixed(2);
 
             md += `| ✅ Check pass rate | ${passRate}% |\n`;
             md += `| ✅ Checks (passes / fails) | ${(checks.passes || 0)} / ${(checks.fails || 0)} |\n`;
