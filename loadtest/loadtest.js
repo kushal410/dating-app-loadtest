@@ -3,7 +3,7 @@ import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
 export const options = {
-  vus: 5000,
+  vus: 500,
   duration: "2m",
 };
 
@@ -45,7 +45,7 @@ export default function () {
 
   // --- Swipe ---
   let swipeRes = http.post(`https://api.2klips.com/swipe`, JSON.stringify({
-    swipeeId: "5",
+    swipeeId: "8",
     liked: true
   }), {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
