@@ -14,6 +14,7 @@ let reqDuration = new Trend('request_duration');
 // --- Test users (all numbers with +977) ---
 const users = [
     "+9779768893673",
+    "+9779800000000",
     "+9779821973432",
     "+9779840034502",
     "+9779840635175",
