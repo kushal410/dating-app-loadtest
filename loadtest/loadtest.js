@@ -2,45 +2,85 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend, Counter } from "k6/metrics";
 
+// ----------------- LOAD OPTIONS -----------------
 export const options = {
-  vus: 200,
-  duration: "2m",
+  scenarios: {
+    main_load_test: {
+      executor: "ramping-vus",
+      startVUs: 0,
+      stages: [
+        { duration: "20s", target: 200 }, // warm up
+        { duration: "1m", target: 500 },  // ramp to peak
+        { duration: "1m30s", target: 500 }, // hold load
+        { duration: "20s", target: 0 },   // ramp down
+      ],
+      gracefulRampDown: "20s",
+    }
+  },
+  thresholds: {
+    http_req_duration: ["p(95)<1500", "p(99)<2500"],
+  },
 };
 
-// -------- HARD CODED TOKENS --------
-const VALIDATION_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM5NTgxOTMsImV4cCI6MTc2Mzk1ODQ5M30.kok30dorTVF-XvHYBf2OUfps-qxEel_PjBhPhsQcCsA";
-
-const ACCESS_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM5NTg0NzYsImV4cCI6MTc2Mzk1OTM3Nn0.s8LLiMSdjCrB5g6GLccZz1CP6KB0LWuav_ZTfF_6Zq4";
-
-const REFRESH_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM5NTg0NzYsImV4cCI6MTc2NDU2MzI3Nn0.sLl8MXETBLKJ7lI3pT3xCg2PMsLSA-UX-NNwRUQWqe8";
-
-// -------- METRICS --------
+// ----------------- CUSTOM METRICS -----------------
+let loginDuration = new Trend("login_duration");
 let profileDuration = new Trend("profile_duration");
-let discoverDuration = new Trend("discover_duration");
 let swipeDuration = new Trend("swipe_duration");
 let failedRequests = new Counter("failed_requests");
 
-// -------- MAIN --------
+// FIXED USER PHONE NUMBER
+const FIXED_PHONE = "+9779807592152";
+
+// ----------------- MAIN TEST FLOW -----------------
 export default function () {
-  // ---------------- PROFILE ----------------
+  // --------------- LOGIN -----------------
+  let loginRes = http.post(
+    "https://api.2klips.com/auth/admin/login",
+    JSON.stringify({ phone: FIXED_PHONE }),
+    { headers: { "Content-Type": "application/json" } }
+  );
+
+  let loginOK = check(loginRes, { "login 200": (r) => r.status === 200 });
+  if (!loginOK) {
+    failedRequests.add(1);
+    return;
+  }
+
+  loginDuration.add(loginRes.timings.duration);
+  let validation_token = loginRes.json().validation_token;
+
+  // --------------- VERIFY OTP -----------------
+  let verifyRes = http.post(
+    "https://api.2klips.com/auth/admin/verifyPhone",
+    JSON.stringify({
+      validation_token: validation_token,
+      otp: 1234,
+    }),
+    { headers: { "Content-Type": "application/json" } }
+  );
+
+  let verifyOK = check(verifyRes, { "OTP verify 200": (r) => r.status === 200 });
+  if (!verifyOK) {
+    failedRequests.add(1);
+    return;
+  }
+
+  let auth_token = verifyRes.json().data.access_token;
+
+  // --------------- GET PROFILE -----------------
   let profileRes = http.get("https://api.2klips.com/user/me", {
-    headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+    headers: { Authorization: `Bearer ${auth_token}` },
   });
 
   check(profileRes, { "profile 200": (r) => r.status === 200 });
   profileDuration.add(profileRes.timings.duration);
 
-  // ---------------- DISCOVER ----------------
+  // --------------- DISCOVER -----------------
   let discoverRes = http.get("https://api.2klips.com/discover", {
-    headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+    headers: { Authorization: `Bearer ${auth_token}` },
   });
 
   let discoverOK = check(discoverRes, { "discover 200": (r) => r.status === 200 });
-  discoverDuration.add(discoverRes.timings.duration);
-
   if (!discoverOK) {
     failedRequests.add(1);
     return;
@@ -52,20 +92,21 @@ export default function () {
     return;
   }
 
-  let randomUser = discoverList[Math.floor(Math.random() * discoverList.length)];
-  let swipeeId = randomUser?.id || randomUser?.userId || "8";
+  // pick random user from discover list
+  let swipeTarget = discoverList[Math.floor(Math.random() * discoverList.length)];
+  let swipeeId = swipeTarget?.id || swipeTarget?.userId || "8";
 
-  // ---------------- SWIPE ----------------
+  // --------------- SWIPE -----------------
   let swipeRes = http.post(
     "https://api.2klips.com/swipe",
     JSON.stringify({
       swipeeId: swipeeId,
-      liked: Math.random() > 0.5,
+      liked: Math.random() > 0.5, // random like/dislike
     }),
     {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
+        Authorization: `Bearer ${auth_token}`,
       },
     }
   );
@@ -73,13 +114,14 @@ export default function () {
   check(swipeRes, { "swipe 200": (r) => r.status === 200 });
   swipeDuration.add(swipeRes.timings.duration);
 
-  sleep(1);
+  // 1–3 second random think time
+  sleep(Math.random() * 2 + 1);
 }
 
-// -------- SUMMARY --------
+// ----------------- SUMMARY OUTPUT -----------------
 export function handleSummary(data) {
   return {
     "stdout": JSON.stringify(data, null, 2),
-    "results/results.json": JSON.stringify(data, null, 2),
+    "results/k6-final-summary.json": JSON.stringify(data, null, 2),
   };
 }
