@@ -2,18 +2,16 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
+// --- Generate ramping stages up to 5000 VUs ---
+const stages = [];
+for (let vus = 1000; vus <= 5000; vus += 100) {
+    stages.push({ duration: '4s', target: vus });
+}
+stages.push({ duration: '2m', target: 5000 }); // hold max load for 2 minutes
+
 // --- k6 options ---
 export const options = {
-    stages: [
-        { duration: '4s', target: 1000 }, // start with 1000 VUs
-        { duration: '4s', target: 1100 },
-        { duration: '4s', target: 1200 },
-        { duration: '4s', target: 1300 },
-        { duration: '4s', target: 1400 },
-        { duration: '4s', target: 1500 },
-        // continue ramping until crash or desired max
-        { duration: '2m', target: 1500 }, // hold at max load for observation
-    ],
+    stages: stages,
     thresholds: {
         http_req_failed: ['rate<0.01'], // fail if more than 1% requests fail
     },
@@ -35,13 +33,12 @@ const users = [
     "+9779827115303",
     "+9779866267202",
     "+9779862004567",
-    "+9779725331684",   // new number
-    "+9779760759186",   // new number
-    "+9779700000000"    // new number
+    "+9779725331684",
+    "+9779760759186",
+    "+9779700000000"
 ];
 
 export default function () {
-    // --- Pick a random user ---
     const phone = users[Math.floor(Math.random() * users.length)];
 
     // --- LOGIN ---
@@ -49,7 +46,6 @@ export default function () {
         JSON.stringify({ phone }),
         { headers: { 'Content-Type': 'application/json' } }
     );
-
     check(loginRes, { "login 200": (r) => r.status === 200 });
     const validation_token = loginRes.json("validation_token");
     if (!validation_token) return;
@@ -61,7 +57,6 @@ export default function () {
         JSON.stringify({ validation_token, otp: 1234 }),
         { headers: { 'Content-Type': 'application/json' } }
     );
-
     check(verifyRes, { "verify 200": (r) => r.status === 200 });
     const auth_token = verifyRes.json("access_token");
     if (!auth_token) return;
