@@ -19,58 +19,44 @@ export default function () {
   );
 
   check(loginRes, { "login 200": (r) => r.status === 200 });
-
   let validation_token = loginRes.json().validation_token;
-
-  if (!validation_token) {
-    console.error("❌ NO validation_token");
-    return;
-  }
+  if (!validation_token) return;
 
   sleep(0.5);
 
   // --- VERIFY PHONE ---
   let verifyRes = http.post(`${BASE_URL}/auth/admin/verifyPhone`,
-    JSON.stringify({
-      validation_token: validation_token,
-      otp: 1234
-    }),
+    JSON.stringify({ validation_token, otp: 1234 }),
     { headers: { 'Content-Type': 'application/json' } }
   );
 
   check(verifyRes, { "verify 200": (r) => r.status === 200 });
-
-  // FIX HERE ✔✔✔
   let auth_token = verifyRes.json().access_token;
+  if (!auth_token) return;
 
-  if (!auth_token) {
-    console.error("❌ NO access_token");
-    console.error("Response:", verifyRes.body);
-    return;
-  }
-
-  const headers = { "Authorization": `Bearer ${auth_token}` };
+  const headers = {
+    "Authorization": `Bearer ${auth_token}`,
+    "Content-Type": "application/json"
+  };
 
   sleep(0.5);
 
   // --- PROFILE ---
   let profileRes = http.get(`${BASE_URL}/user/me`, { headers });
-
   check(profileRes, { "profile 200": (r) => r.status === 200 });
 
   // --- DISCOVER ---
   let discoverRes = http.get(`${BASE_URL}/discover`, { headers });
-
   check(discoverRes, { "discover 200": (r) => r.status === 200 });
 
   // --- SWIPE ---
   let swipeRes = http.post(`${BASE_URL}/swipe`,
     JSON.stringify({ swipeeId: "8", liked: true }),
-    { headers: { ...headers, "Content-Type": "application/json" } }
+    { headers }
   );
-
   check(swipeRes, { "swipe 200": (r) => r.status === 200 });
 
+  // --- TRACK METRICS ---
   reqDuration.add(profileRes.timings.duration);
   reqDuration.add(discoverRes.timings.duration);
   reqDuration.add(swipeRes.timings.duration);
