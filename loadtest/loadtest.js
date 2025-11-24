@@ -2,15 +2,16 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
+// --- k6 options ---
 export const options = {
-    vus: 500,
-    duration: "2m",
+    vus: 10,          // Use 10 VUs to match your 10 mobile numbers
+    duration: "2m",   // Total duration of test
 };
 
 const BASE_URL = "https://api.2klips.com";
 let reqDuration = new Trend('request_duration');
 
-// Test users (all numbers with +977)
+// --- Test users (all numbers with +977) ---
 const users = [
     "+9779768893673",
     "+9779821973432",
@@ -21,11 +22,10 @@ const users = [
     "+9779841180731",
     "+9779827115303",
     "+9779866267202",
-    "+9779862004567"  // new number added
+    "+9779862004567"
 ];
 
 export default function () {
-
     // --- Pick a random user ---
     const phone = users[Math.floor(Math.random() * users.length)];
 
@@ -36,7 +36,7 @@ export default function () {
     );
 
     check(loginRes, { "login 200": (r) => r.status === 200 });
-    let validation_token = loginRes.json().validation_token;
+    const validation_token = loginRes.json("validation_token");
     if (!validation_token) return;
 
     sleep(0.2);
@@ -48,7 +48,7 @@ export default function () {
     );
 
     check(verifyRes, { "verify 200": (r) => r.status === 200 });
-    let auth_token = verifyRes.json().access_token;
+    const auth_token = verifyRes.json("access_token");
     if (!auth_token) return;
 
     const headers = {
@@ -96,6 +96,7 @@ export default function () {
     sleep(1);
 }
 
+// --- Summary export ---
 export function handleSummary(data) {
     return {
         "stdout": JSON.stringify(data, null, 2),
