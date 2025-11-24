@@ -14,7 +14,7 @@ let reqDuration = new Trend('request_duration');
 
 export default function () {
   // --- LOGIN ---
-  let loginRes = http.post(`${BASE_URL}/auth/admin/login`,
+  let loginRes = http.post(`https://api.2klips.com/auth/admin/login`,
     JSON.stringify({
       phone: "+9779807592152"
     }),
@@ -62,7 +62,7 @@ export default function () {
 
 
   // --- DISCOVER FEED ---
-  let discoverRes = http.get(`${BASE_URL}/discover`, {
+  let discoverRes = http.get(`https://api.2klips.com/discover`, {
     headers: {
       'Authorization': `Bearer ${auth_token}`
     }
@@ -74,7 +74,7 @@ export default function () {
 
 
   // --- SWIPE ---
-  let swipeRes = http.post(`${BASE_URL}/swipe`,
+  let swipeRes = http.post(`https://api.2klips.com/swipe`,
     JSON.stringify({
       swipeeId: "8",
       liked: true
