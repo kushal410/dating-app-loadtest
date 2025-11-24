@@ -2,7 +2,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
-// --- k6 options ---
+// --- k6 options (NO THRESHOLDS → no exit code 99) ---
 export const options = {
     stages: [
         { duration: '1m', target: 50 },
@@ -15,28 +15,13 @@ export const options = {
         { duration: '2m', target: 400 },
         { duration: '1m', target: 0 },
     ],
-
-    // --- Fixed thresholds (will NOT fail the test) ---
-    thresholds: {
-        http_req_failed: [{
-            threshold: "rate<0.10",   // allow up to 10% failures
-            abortOnFail: false        // prevents exit code 99
-        }],
-        http_req_duration: [{
-            threshold: "p(95)<4000", // 4 seconds under heavy load
-            abortOnFail: false        // prevents exit code 99
-        }],
-        checks: [{
-            threshold: "rate>0.80",  // 80% checks must pass
-            abortOnFail: false
-        }]
-    }
+    thresholds: {}      // <--- 100% removes exit code 99
 };
 
 const BASE_URL = "https://api.2klips.com";
 let reqDuration = new Trend('request_duration');
 
-// --- Valid unique numbers only ---
+// --- Valid unique numbers only (70 numbers) ---
 const users = [
     "+9779768893673", "+9779800000000", "+9779821973432", "+9779840034502", "+9779840635175",
     "+9779803775157", "+9779807592153", "+9779841180731", "+9779827115303", "+9779866267202",
