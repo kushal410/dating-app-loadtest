@@ -4,7 +4,7 @@ import { Trend } from "k6/metrics";
 
 // --- k6 options ---
 export const options = {
-    vus: 5000,          // Use 10 VUs to match your 10 mobile numbers
+    vus: 500,          // Use 10 VUs to match your 10 mobile numbers
     duration: "2m",   // Total duration of test
 };
 
