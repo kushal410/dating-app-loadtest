@@ -1,73 +1,130 @@
-import http from "k6/http";
-import { check, sleep } from "k6";
-import { Trend } from "k6/metrics";
+import http from 'k6/http';
+import { check, sleep } from 'k6';
 
 export const options = {
-  vus: 500,
-  duration: "2m",
+  vus: 50,                     // number of virtual users
+  duration: '1m',              // test duration
+  thresholds: {
+    http_req_duration: ['p(95)<1500'],  // 95% requests < 1.5s
+  },
 };
 
 const BASE_URL = "https://api.2klips.com";
-
-// Optional: custom metric for request duration
-let reqDuration = new Trend('request_duration');
+const TEST_PHONE = "9862004567";
+const OTP = "1234";
 
 export default function () {
-  // --- Login ---
-  let loginRes = http.post(`https://api.2klips.com/auth/admin/login`, JSON.stringify({
-    phone: "+9779807592152"
-  }), { headers: { 'Content-Type': 'application/json' } });
-
-  check(loginRes, { "login status 200": (r) => r.status === 200 });
-
-  let validation_token = loginRes.json().validation_token;
-
-  // --- Verify phone ---
-  let verifyRes = http.post(`https://api.2klips.com/auth/admin/verifyPhone`, JSON.stringify({
-    validation_token: validation_token,
-    otp: 1234
-  }), { headers: { 'Content-Type': 'application/json' } });
-
-  check(verifyRes, { "verify status 200": (r) => r.status === 200 });
-  let auth_token = verifyRes.json().data.access_token;
-
-  // --- Fetch profile ---
-  let profileRes = http.get(`https://api.2klips.com/user/me`, {
-    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
-  });
-  check(profileRes, { "profile status 200": (r) => r.status === 200 });
-
-  // --- Discover feed ---
-  let discoverRes = http.get(`https://api.2klips.com/discover`, {
-    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
-  });
-  check(discoverRes, { "discover status 200": (r) => r.status === 200 });
-
-  // --- Swipe ---
-  let swipeRes = http.post(`https://api.2klips.com/swipe`, JSON.stringify({
-    swipeeId: "8",
-    liked: true
+  // -------------------------------
+  // 1. LOGIN (SEND OTP)
+  // -------------------------------
+  let loginRes = http.post(`${BASE_URL}/login`, JSON.stringify({
+    phone: TEST_PHONE
   }), {
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInBob25lIjoiKzk3Nzk4MDc1OTIxNTIiLCJyb2xlIjoiQWRtaW4iLCJ0b2tlbklkZW50aWZpZXIiOiJkZWMyYmIzMC03Y2Q1LTQxZWQtOGQ0Mi0wYmU2YTc3YzRlOGMiLCJpYXQiOjE3NjM1NjkyNzEsImV4cCI6MTc2MzU2OTU3MX0.GFVdQJjWHqYYqFsV8tZalXFsWieK8s8mqlwKF9s6rjw` }
+    headers: { "Content-Type": "application/json" }
   });
-  check(swipeRes, { "swipe status 200": (r) => r.status === 200 });
 
-  // --- Optional Chat ---
-  // http.post(`https://api.2klips.com/chat/send`, JSON.stringify({ toUserId: "5", message: "Hello!" }),
-  // { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth_token}` } });
+  check(loginRes, {
+    "login status 200": (r) => r.status === 200,
+  });
 
-  // --- Track duration metric ---
-  reqDuration.add(profileRes.timings.duration);
-  reqDuration.add(discoverRes.timings.duration);
-  reqDuration.add(swipeRes.timings.duration);
+  const validation_token = loginRes.json()?.data?.validation_token;
+
+  if (!validation_token) {
+    console.error("❌ login failed — no validation_token");
+    return;
+  }
 
   sleep(1);
-}
 
-// Optional: print a summary at the end (shown in logs)
-export function handleSummary(data) {
-  return {
-    "stdout": JSON.stringify(data, null, 2),   // prints full summary in logs
-    "results/results.json": JSON.stringify(data, null, 2) // saves JSON file
+  // -------------------------------
+  // 2. VERIFY OTP → get access_token
+  // -------------------------------
+  let verifyRes = http.post(`${BASE_URL}/verify`, JSON.stringify({
+    validation_token: validation_token,
+    otp: OTP,
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+
+  check(verifyRes, {
+    "verify status 200": (r) => r.status === 200,
+  });
+
+  const access_token = verifyRes.json()?.data?.access_token;
+
+  if (!access_token) {
+    console.error("❌ verify failed — no access_token");
+    return;
+  }
+
+  const headers = {
+    "Authorization": `Bearer ${access_token}`,
+    "Content-Type": "application/json"
   };
+
+  sleep(1);
+
+  // -------------------------------
+  // 3. DISCOVER FEED
+  // -------------------------------
+  let discoverRes = http.get(`${BASE_URL}/discover`, { headers });
+
+  check(discoverRes, {
+    "discover 200": (r) => r.status === 200,
+  });
+
+  let users = discoverRes.json()?.data ?? [];
+  let randomUser = users.length > 0
+    ? users[Math.floor(Math.random() * users.length)].id
+    : null;
+
+  sleep(1);
+
+  // -------------------------------
+  // 4. SWIPE RANDOM USER
+  // -------------------------------
+  if (randomUser) {
+    let swipeRes = http.post(`${BASE_URL}/swipe`, JSON.stringify({
+      swipeeId: randomUser,
+      liked: true
+    }), {
+      headers
+    });
+
+    check(swipeRes, {
+      "swipe 200": (r) => r.status === 200,
+    });
+  }
+
+  sleep(1);
+
+  // -------------------------------
+  // 5. CREATE STORY
+  // -------------------------------
+  let storyRes = http.post(`${BASE_URL}/story/create`, JSON.stringify({
+    title: "Load Test Story",
+    content: "Story created during load test.",
+    mediaUrls: []
+  }), {
+    headers
+  });
+
+  check(storyRes, {
+    "story create 200": (r) => r.status === 200,
+  });
+
+  sleep(1);
+
+  // -------------------------------
+  // 6. PERSONALITY STATUS (scroll section)
+  // -------------------------------
+  let perRes = http.get(`${BASE_URL}/status-posts/peronality/kpis`, {
+    headers
+  });
+
+  check(perRes, {
+    "personality 200": (r) => r.status === 200,
+  });
+
+  sleep(1);
 }
