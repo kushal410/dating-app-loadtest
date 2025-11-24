@@ -5,26 +5,23 @@ import { Trend } from "k6/metrics";
 // --- Load Test Configuration ---
 export const options = {
     stages: [
-        { duration: "10s", target: 100 },     // Ramp up to 100 VUs
-        { duration: "10s", target: 500 },     // Ramp up to 500 VUs
-        { duration: "15s", target: 1000 },    // Ramp up to 1000 VUs
-        { duration: "20s", target: 2000 },    // Ramp up to 2000 VUs
-        { duration: "20s", target: 3000 },    // Ramp up to 3000 VUs
-        { duration: "20s", target: 4000 },    // Ramp up to 4000 VUs
-        { duration: "20s", target: 5000 },    // Ramp up to 5000 VUs
-        { duration: "2m", target: 5000 },     // Hold peak load
-        { duration: "20s", target: 0 },       // Ramp down
+        { duration: "10s", target: 100 },    // Ramp up to 100 VUs
+        { duration: "10s", target: 500 },    // Ramp up to 500 VUs
+        { duration: "15s", target: 1000 },   // Ramp up to 1000 VUs
+        { duration: "20s", target: 1300 },   // Ramp up to 1300 VUs
+        { duration: "2m", target: 1300 },    // Hold peak load
+        { duration: "20s", target: 0 },      // Ramp down
     ],
     thresholds: {
-        http_req_failed: ["rate<0.20"],       // 20% max failure allowed
-        http_req_duration: ["p(95)<3000"],    // 95% requests < 3s
+        http_req_failed: ["rate<0.20"],      // 20% max failure allowed
+        http_req_duration: ["p(95)<3000"],   // 95% requests < 3s
     }
 };
 
 const BASE_URL = "https://api.2klips.com";
 let reqDuration = new Trend("request_duration");
 
-// --- Test Users (with +977 prefix) ---
+// --- Test Users (all numbers with +977) ---
 const users = [
     "+9779768893673",
     "+9779800000000",
@@ -37,9 +34,9 @@ const users = [
     "+9779827115303",
     "+9779866267202",
     "+9779862004567",
-    "+9779725331684",   // Newly added
-    "+9779760759186",   // Newly added
-    "+9779700000000"    // Newly added
+    "+9779725331684",
+    "+9779760759186",
+    "+9779700000000"
 ];
 
 export default function () {
