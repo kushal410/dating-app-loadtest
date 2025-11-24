@@ -8,27 +8,26 @@ export const options = {
 };
 
 const BASE_URL = "https://api.2klips.com";
-
-// Custom metric
 let reqDuration = new Trend('request_duration');
 
 export default function () {
+
   // --- LOGIN ---
-  let loginRes = http.post(`https://api.2klips.com/auth/admin/login`,
-    JSON.stringify({
-      phone: "+9779807592152"
-    }),
-    {
-      headers: { 'Content-Type': 'application/json' }
-    }
+  let loginRes = http.post(`${BASE_URL}/auth/admin/login`,
+    JSON.stringify({ phone: "+9779807592152" }),
+    { headers: { 'Content-Type': 'application/json' } }
   );
 
-  check(loginRes, {
-    "login status 200": (r) => r.status === 200
-  });
+  check(loginRes, { "login 200": (r) => r.status === 200 });
 
   let validation_token = loginRes.json().validation_token;
 
+  if (!validation_token) {
+    console.error("❌ NO validation_token");
+    return;
+  }
+
+  sleep(0.5);
 
   // --- VERIFY PHONE ---
   let verifyRes = http.post(`${BASE_URL}/auth/admin/verifyPhone`,
@@ -36,63 +35,42 @@ export default function () {
       validation_token: validation_token,
       otp: 1234
     }),
-    {
-      headers: { 'Content-Type': 'application/json' }
-    }
+    { headers: { 'Content-Type': 'application/json' } }
   );
 
-  check(verifyRes, {
-    "verify status 200": (r) => r.status === 200
-  });
+  check(verifyRes, { "verify 200": (r) => r.status === 200 });
 
-  // Get dynamic verified access token
-  let auth_token = verifyRes.json().data.access_token;
+  // FIX HERE ✔✔✔
+  let auth_token = verifyRes.json().access_token;
 
+  if (!auth_token) {
+    console.error("❌ NO access_token");
+    console.error("Response:", verifyRes.body);
+    return;
+  }
 
-  // --- FETCH PROFILE ---
-  let profileRes = http.get(`${BASE_URL}/user/me`, {
-    headers: {
-      'Authorization': `Bearer ${auth_token}`
-    }
-  });
+  const headers = { "Authorization": `Bearer ${auth_token}` };
 
-  check(profileRes, {
-    "profile status 200": (r) => r.status === 200
-  });
+  sleep(0.5);
 
+  // --- PROFILE ---
+  let profileRes = http.get(`${BASE_URL}/user/me`, { headers });
 
-  // --- DISCOVER FEED ---
-  let discoverRes = http.get(`https://api.2klips.com/discover`, {
-    headers: {
-      'Authorization': `Bearer ${auth_token}`
-    }
-  });
+  check(profileRes, { "profile 200": (r) => r.status === 200 });
 
-  check(discoverRes, {
-    "discover status 200": (r) => r.status === 200
-  });
+  // --- DISCOVER ---
+  let discoverRes = http.get(`${BASE_URL}/discover`, { headers });
 
+  check(discoverRes, { "discover 200": (r) => r.status === 200 });
 
   // --- SWIPE ---
-  let swipeRes = http.post(`https://api.2klips.com/swipe`,
-    JSON.stringify({
-      swipeeId: "8",
-      liked: true
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${auth_token}`
-      }
-    }
+  let swipeRes = http.post(`${BASE_URL}/swipe`,
+    JSON.stringify({ swipeeId: "8", liked: true }),
+    { headers: { ...headers, "Content-Type": "application/json" } }
   );
 
-  check(swipeRes, {
-    "swipe status 200": (r) => r.status === 200
-  });
+  check(swipeRes, { "swipe 200": (r) => r.status === 200 });
 
-
-  // --- Track custom metrics ---
   reqDuration.add(profileRes.timings.duration);
   reqDuration.add(discoverRes.timings.duration);
   reqDuration.add(swipeRes.timings.duration);
@@ -100,8 +78,6 @@ export default function () {
   sleep(1);
 }
 
-
-// --- SUMMARY OUTPUT ---
 export function handleSummary(data) {
   return {
     "stdout": JSON.stringify(data, null, 2),
