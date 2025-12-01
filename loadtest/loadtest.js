@@ -5,22 +5,29 @@ import { Trend } from "k6/metrics";
 // --- k6 options (NO THRESHOLDS → no exit code 99) ---
 export const options = {
   stages: [
-    { duration: '2m', target: 100 },     // Warm-up
-    { duration: '4m', target: 500 },     // Early load
-    { duration: '5m', target: 1200 },    // Normal expected load
-    { duration: '6m', target: 3000 },    // High load
-    { duration: '8m', target: 8000 },    // ✅ Peak production load
-    { duration: '10m', target: 8000 },   // ✅ Stable hold at peak
-    { duration: '5m', target: 3000 },    // Controlled ramp-down
-    { duration: '3m', target: 1000 },
-    { duration: '2m', target: 0 },       // Cool-down
+    { duration: '1m', target: 50 },      // Warm-up (internal testers start logging in)
+    { duration: '3m', target: 200 },     // Light load
+    { duration: '4m', target: 500 },     // Expected internal test load
+    { duration: '5m', target: 800 },     // Slightly above expectation (buffer test)
+
+    // 🔥 Spike test
+    { duration: '2m', target: 1500 },    // Sudden peak spike
+    { duration: '3m', target: 1500 },    // Hold spike
+
+    // 🔁 Endurance / Soak test
+    { duration: '10m', target: 1000 },   // Stable normal load
+
+    // ⬇ Ramp-down
+    { duration: '3m', target: 300 },
+    { duration: '2m', target: 0 },
   ],
 
   thresholds: {
-    http_req_failed: ['rate<0.005'],     // < 0.5% failure rate
+    http_req_failed: ['rate<0.01'],  // <1% failure allowed for internal
     http_req_duration: [
-      'p(95)<1500',                      // 95% < 1.5s
-      'p(99)<2500',                      // 99% < 2.5s
+      'p(90)<1000',                  // 90% under 1s
+      'p(95)<1500',                  // 95% under 1.5s
+      'p(99)<2500',                  // 99% under 2.5s
     ],
   },
 };
