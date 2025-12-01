@@ -4,19 +4,27 @@ import { Trend } from "k6/metrics";
 
 // --- k6 options (NO THRESHOLDS → no exit code 99) ---
 export const options = {
-    stages: [
-        { duration: '1m', target: 50 },
-        { duration: '2m', target: 200 },
-        { duration: '2m', target: 500 },
-        { duration: '2m', target: 800 },
-        { duration: '2m', target: 1200 },
-        { duration: '2m', target: 1600 },
-        { duration: '2m', target: 800 },
-        { duration: '2m', target: 400 },
-        { duration: '1m', target: 0 },
+  stages: [
+    { duration: '2m', target: 100 },     // Warm-up
+    { duration: '4m', target: 500 },     // Early load
+    { duration: '5m', target: 1200 },    // Normal expected load
+    { duration: '6m', target: 3000 },    // High load
+    { duration: '8m', target: 8000 },    // ✅ Peak production load
+    { duration: '10m', target: 8000 },   // ✅ Stable hold at peak
+    { duration: '5m', target: 3000 },    // Controlled ramp-down
+    { duration: '3m', target: 1000 },
+    { duration: '2m', target: 0 },       // Cool-down
+  ],
+
+  thresholds: {
+    http_req_failed: ['rate<0.005'],     // < 0.5% failure rate
+    http_req_duration: [
+      'p(95)<1500',                      // 95% < 1.5s
+      'p(99)<2500',                      // 99% < 2.5s
     ],
-    thresholds: {}      // <--- 100% removes exit code 99
+  },
 };
+
 
 const BASE_URL = "https://api.2klips.com";
 let reqDuration = new Trend('request_duration');
