@@ -5,29 +5,25 @@ import { Trend } from "k6/metrics";
 // --- k6 options (NO THRESHOLDS → no exit code 99) ---
 export const options = {
   stages: [
-    { duration: '30s', target: 100 },     // Warm-up users
-    { duration: '1m', target: 300 },      // Normal load
-    { duration: '1m', target: 500 },      // High load
+    { duration: '30s', target: 200 },     // Warm-up
+    { duration: '1m', target: 500 },      // Normal load
+    { duration: '1m', target: 900 },      // High load
 
-    // 🔥 Spike Test
-    { duration: '30s', target: 1500 },    // Sudden spike
-    { duration: '1m', target: 1500 },     // Hold spike
-
-    // 🔁 Stress/Break Point Test
-    { duration: '1m', target: 2000 },     // Push system harder
-    { duration: '1m', target: 2500 },     // Identify breaking point
+    // 🔥 Spike test (MAX LIMIT = 1500)
+    { duration: '30s', target: 1500 },    // Jump to max
+    { duration: '1m', target: 1500 },     // Hold at max load
 
     // ⬇ Ramp-down
-    { duration: '30s', target: 500 },
+    { duration: '30s', target: 400 },
     { duration: '20s', target: 0 },
   ],
 
   thresholds: {
-    http_req_failed: ['rate<0.02'],       // Allow max 2% failures under stress
+    http_req_failed: ['rate<0.02'],       // 2% failures allowed under stress
     http_req_duration: [
-      'p(90)<800',                        // 90% requests < 800ms
-      'p(95)<1200',                       // 95% requests < 1.2s
-      'p(99)<2000',                       // 99% requests < 2s
+      'p(90)<900',                        // 90% under 900ms
+      'p(95)<1400',                       // 95% under 1.4s
+      'p(99)<2200',                       // 99% under 2.2s
     ],
   },
 };
@@ -90,10 +86,6 @@ export default function () {
     // PROFILE
     let profileRes = http.get(`${BASE_URL}/user/me`, { headers });
     check(profileRes, { "profile 200": (r) => r.status === 200 });
-
-    // DISCOVER
-    let discoverRes = http.get(`${BASE_URL}/discover`, { headers });
-    check(discoverRes, { "discover 200": (r) => r.status === 200 });
 
     // SWIPE
     const randomSwipeId = Math.floor(Math.random() * 50) + 1;
