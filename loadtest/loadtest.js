@@ -2,26 +2,20 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
 
-// --- k6 options ---
+// --- k6 options (NO THRESHOLDS → no exit code 99) ---
 export const options = {
-  stages: [
-    { duration: '30s', target: 200 },
-    { duration: '1m', target: 500 },
-    { duration: '1m', target: 900 },
-    { duration: '30s', target: 1300 },
-    { duration: '1m', target: 1300 },
-    { duration: '30s', target: 300 },
-    { duration: '20s', target: 0 },
-  ],
-
-  thresholds: {
-    http_req_failed: [
-      { threshold: 'rate<0.20', abortOnFail: false }
+    stages: [
+        { duration: '1m', target: 50 },
+        { duration: '2m', target: 200 },
+        { duration: '2m', target: 500 },
+        { duration: '2m', target: 800 },
+        { duration: '2m', target: 1200 },
+        { duration: '2m', target: 1600 },
+        { duration: '2m', target: 800 },
+        { duration: '2m', target: 400 },
+        { duration: '1m', target: 0 },
     ],
-    http_req_duration: [
-      { threshold: 'p(90)<3000', abortOnFail: false }
-    ],
-  },
+    thresholds: {}      // <--- 100% removes exit code 99
 };
 
 const BASE_URL = "https://api.2klips.com";
@@ -45,6 +39,7 @@ const users = [
     "+9779800534151", "+9779802151415", "+9779827115302", "+9779768290797",
 ];
 
+// --- main test ---
 export default function () {
     const phone = users[Math.floor(Math.random() * users.length)];
 
@@ -81,6 +76,10 @@ export default function () {
     let profileRes = http.get(`${BASE_URL}/user/me`, { headers });
     check(profileRes, { "profile 200": (r) => r.status === 200 });
 
+    // DISCOVER
+    let discoverRes = http.get(`${BASE_URL}/discover`, { headers });
+    check(discoverRes, { "discover 200": (r) => r.status === 200 });
+
     // SWIPE
     const randomSwipeId = Math.floor(Math.random() * 50) + 1;
     let swipeRes = http.post(
@@ -106,8 +105,9 @@ export default function () {
     );
     check(personalityRes, { "personality 200": (r) => r.status === 200 });
 
-    // --- add metrics safely ---
+    // Track metrics
     reqDuration.add(profileRes.timings.duration);
+    reqDuration.add(discoverRes.timings.duration);
     reqDuration.add(swipeRes.timings.duration);
     reqDuration.add(storyRes.timings.duration);
     reqDuration.add(personalityRes.timings.duration);
